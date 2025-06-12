@@ -22,6 +22,9 @@
 #include "interpreter/Node.h"
 #include "interpreter/Relation.h"
 #include "interpreter/ViewContext.h"
+
+#include "interpreter/LLMQueryRelationWrapper.h"
+
 #include "ram/Aggregate.h"
 #include "ram/Aggregator.h"
 #include "ram/Assign.h"
@@ -360,6 +363,13 @@ void Engine::createRelation(const ram::Relation& id, const std::size_t idx) {
 
     RelationHandle res;
     bool hasProvenance = id.getArity() > 0 && id.getAttributeNames().back() == "@level_number";
+
+    if (id.getName() == "R_5coref4java8Callable16getBelongedClass") {
+        // LLMQueryRelationWrapper(Engine& eng, arity_type arity, arity_type auxiliaryArity, std::string
+        // relName)
+        res = LLMQueryRelationWrapper(*this, 2, 0, "R_5coref4java8Callable16getBelongedClass");
+    }
+
     if (hasProvenance) {
         res = createProvenanceRelation(id, isa.getIndexSelection(id.getName()));
     } else if (id.getRepresentation() == RelationRepresentation::EQREL) {
@@ -369,6 +379,9 @@ void Engine::createRelation(const ram::Relation& id, const std::size_t idx) {
     } else {
         res = createBTreeRelation(id, isa.getIndexSelection(id.getName()));
     }
+
+    relToIdMap[id.getName()] = idx;
+
     relations[idx] = mk<RelationHandle>(std::move(res));
 }
 

@@ -19,6 +19,9 @@
 #include "Global.h"
 #include "interpreter/Context.h"
 #include "interpreter/Generator.h"
+
+#include "interpreter/LLMQueryRelationWrapper.h"
+
 #include "interpreter/Index.h"
 #include "interpreter/Node.h"
 #include "interpreter/Relation.h"
@@ -36,6 +39,9 @@
 #include <deque>
 #include <map>
 #include <memory>
+
+#include <unordered_map>
+
 #include <regex>
 #include <string>
 #include <vector>
@@ -74,6 +80,11 @@ public:
 
     /** @brief Return the record table */
     RecordTable& getRecordTable();
+
+    /** @brief Return the Relation name to ID */
+    const std::unordered_map<std::string, std::size_t>& getRelIDMap() const {
+        return relToIdMap;
+    }
 
 private:
     /** @brief Generate intermediate representation from RAM */
@@ -204,6 +215,9 @@ private:
     SymbolTableImpl symbolTable;
     /** A cache for regexes */
     ConcurrentCache<std::string, std::regex> regexCache;
+
+    /** map for Relation to ID. */
+    std::unordered_map<std::string, std::size_t> relToIdMap;
 };
 
 }  // namespace souffle::interpreter
