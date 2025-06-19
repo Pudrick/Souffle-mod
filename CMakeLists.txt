@@ -14,50 +14,39 @@ include(CMakeDependentOption)
 
 option(SOUFFLE_GIT "Enable/Disable git completion" ON)
 
-if (SOUFFLE_GIT)
+if (SOUFFLE_GIT) 
     find_package(Git REQUIRED)
 
-    # GIT_TAGNAME identifies the current commit, it is closest tag in the
-    # branch, possibly followed by number of additionnal commits and
-    # abbreviated hash
+    # PACKAGE_VERSION is the full tag with git hash
     execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --always
                     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                     RESULT_VARIABLE GIT_RESULT
-                    OUTPUT_VARIABLE GIT_TAGNAME)
-
-    # GIT_CLOSEST_TAG is the closest tag in the branch
-    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --always --abbrev=0
-                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                    RESULT_VARIABLE GIT_RESULT
-                    OUTPUT_VARIABLE GIT_CLOSEST_TAG)
+                    OUTPUT_VARIABLE GIT_PACKAGE_VERSION)
+                    # FIXME: Use in cmake 3.19 or later
+                    # COMMAND_ERROR_IS_FATAL ANY)
 
     # Figure out the version number, depends on whether building from the git repo
     if (NOT GIT_RESULT EQUAL 0)
         # Not building from a git clone
         message(WARNING "Unable to find git repository: version number will be incomplete")
-        set(GIT_PACKAGE_VERSION "UNKNOWN")
-        set(PACKAGE_VERSION "")
+        set(PACKAGE_VERSION "UNKNOWN")
+        set(SOUFFLE_VERSION "")
     else()
-        string(REGEX REPLACE "\n$" "" GIT_PACKAGE_VERSION "${GIT_TAGNAME}")
-        message(STATUS "Building souffle version ${GIT_PACKAGE_VERSION}")
+        string(REGEX REPLACE "\n$" "" PACKAGE_VERSION "${GIT_PACKAGE_VERSION}")
+        message(STATUS "Building souffle version ${PACKAGE_VERSION}")
 
-        string(REGEX REPLACE "\n$" "" GIT_CLOSEST_TAG "${GIT_CLOSEST_TAG}")
-        # remove leading 'v' in tag if any
-        string(REGEX REPLACE "^v" "" PACKAGE_VERSION "${GIT_CLOSEST_TAG}")
-        # remove trailing '-something' in tag
-        string(REGEX REPLACE "-.*$" "" PACKAGE_VERSION "${PACKAGE_VERSION}")
+        # SOUFFLE_VERSION only includes the major/minor triplet
+        string(REGEX REPLACE "-.*$" "" SOUFFLE_VERSION "${PACKAGE_VERSION}")
 
         # If building from a shallow clone where tag is not available.
-        if (NOT ${PACKAGE_VERSION} MATCHES "^[0-9.]+$")
+        if (NOT ${SOUFFLE_VERSION} MATCHES "^[0-9.]+$")
             message(WARNING "Cannot find a valid tag: cmake project version will be incomplete")
-            set(PACKAGE_VERSION "")
+            set (SOUFFLE_VERSION "")
         endif()
-
-        message(STATUS "Package version ${PACKAGE_VERSION}")
     endif()
 endif()
 
-project(souffle VERSION "${PACKAGE_VERSION}"
+project(souffle VERSION "${SOUFFLE_VERSION}"
                 DESCRIPTION "A datalog compiler"
                 LANGUAGES CXX)
 include(CTest)
@@ -115,17 +104,12 @@ option(SOUFFLE_CODE_COVERAGE "Enable coverage reporting" OFF)
 option(SOUFFLE_BASH_COMPLETION "Enable/Disable bash completion" OFF)
 option(SOUFFLE_USE_LIBFFI "Enable/Disable use of libffi" ON)
 option(SOUFFLE_CUSTOM_GETOPTLONG "Enable/Disable custom getopt_long implementation" OFF)
-option(SOUFFLE_TEST_DEBUG_REPORT "Enable/Disable generating debug-report for all tests" OFF)
-
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  set (USE_CLANG)
-endif()
 
 cmake_dependent_option(SOUFFLE_USE_LIBCPP "Link to libc++ instead of libstdc++" ON
-  "USE_CLANG" OFF)
+    "CMAKE_CXX_COMPILER_ID STREQUAL Clang" OFF)
 
 # Using Clang? Likely want to use `lld` too.
-if (USE_CLANG)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
     set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fuse-ld=lld")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
@@ -289,13 +273,13 @@ endif()
 # Memory Sanitiser
 # --------------------------------------------------
 if (SOUFFLE_SANITISE_MEMORY)
-  if (USE_CLANG)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address,leak,undefined")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,leak,undefined")
-  else()
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address,leak")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,leak")
-  endif()
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address,leak,undefined")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,leak,undefined")
+    else()
+        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address,leak")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,leak")
+    endif()
 endif()
 
 # --------------------------------------------------
@@ -378,6 +362,16 @@ if(SOUFFLE_CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_link_libraries(coverage_config INTERFACE --coverage)
     endif()
 endif(SOUFFLE_CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+
+if (SOUFFLE_USE_SQLITE)
+    # 检查 SQLiteCpp 目录是否存在
+    if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/SQLiteCpp")
+        message(STATUS "Adding SQLiteCpp subdirectory")
+        add_subdirectory(third_party/SQLiteCpp)
+    else()
+        message(WARNING "SQLiteCpp directory not found at third_party/SQLiteCpp")
+    endif()
+endif()
 
 # There are a few tests in src, so add it *after*
 # including CTest

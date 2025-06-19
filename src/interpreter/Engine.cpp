@@ -367,17 +367,17 @@ void Engine::createRelation(const ram::Relation& id, const std::size_t idx) {
     if (id.getName() == "R_5coref4java8Callable16getBelongedClass") {
         // LLMQueryRelationWrapper(Engine& eng, arity_type arity, arity_type auxiliaryArity, std::string
         // relName)
-        res = LLMQueryRelationWrapper(*this, 2, 0, "R_5coref4java8Callable16getBelongedClass");
-    }
-
-    if (hasProvenance) {
-        res = createProvenanceRelation(id, isa.getIndexSelection(id.getName()));
-    } else if (id.getRepresentation() == RelationRepresentation::EQREL) {
-        res = createEqrelRelation(id, isa.getIndexSelection(id.getName()));
-    } else if (id.getRepresentation() == RelationRepresentation::BTREE_DELETE) {
-        res = createBTreeDeleteRelation(id, isa.getIndexSelection(id.getName()));
+        res = mk<LLMQueryRelationWrapper<2>>(*this, id, isa.getIndexSelection(id.getName()));
     } else {
-        res = createBTreeRelation(id, isa.getIndexSelection(id.getName()));
+        if (hasProvenance) {
+            res = createProvenanceRelation(id, isa.getIndexSelection(id.getName()));
+        } else if (id.getRepresentation() == RelationRepresentation::EQREL) {
+            res = createEqrelRelation(id, isa.getIndexSelection(id.getName()));
+        } else if (id.getRepresentation() == RelationRepresentation::BTREE_DELETE) {
+            res = createBTreeDeleteRelation(id, isa.getIndexSelection(id.getName()));
+        } else {
+            res = createBTreeRelation(id, isa.getIndexSelection(id.getName()));
+        }
     }
 
     relToIdMap[id.getName()] = idx;
@@ -1007,10 +1007,18 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
             return !execute(shadow.getChild(), ctxt);
         ESAC(Negation)
 
-#define EMPTINESS_CHECK(Structure, Arity, AuxiliaryArity, ...)          \
-    CASE(EmptinessCheck, Structure, Arity, AuxiliaryArity)              \
-        const auto& rel = *static_cast<RelType*>(shadow.getRelation()); \
-        return rel.empty();                                             \
+#define EMPTINESS_CHECK(Structure, Arity, AuxiliaryArity, ...)                                      \
+    CASE(EmptinessCheck, Structure, Arity, AuxiliaryArity)                                          \
+        { /* 添加显式作用域块 */                                                                    \
+            RelationWrapper* currentRelWrapper = shadow.getRelation();                              \
+            /* 为了测试方便，直接硬编码名称 */                                                      \
+            if (currentRelWrapper->getName() == "R_5coref4java8Callable16getBelongedClass") {       \
+                auto* llmWrapper = static_cast<LLMQueryRelationWrapper<Arity>*>(currentRelWrapper); \
+                return llmWrapper->isEmpty();                                                       \
+            }                                                                                       \
+            const auto& rel = *static_cast<RelType*>(shadow.getRelation());                         \
+            return rel.empty();                                                                     \
+        }                                                                                           \
     ESAC(EmptinessCheck)
 
         FOR_EACH(EMPTINESS_CHECK)
@@ -1313,10 +1321,13 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
         FOR_EACH(GUARDED_INSERT)
 #undef GUARDED_INSERT
 
-#define INSERT(Structure, Arity, AuxiliaryArity, ...)             \
-    CASE(Insert, Structure, Arity, AuxiliaryArity)                \
-        auto& rel = *static_cast<RelType*>(shadow.getRelation()); \
-        return evalInsert(rel, shadow, ctxt);                     \
+#define INSERT(Structure, Arity, AuxiliaryArity, ...)                                        \
+    CASE(Insert, Structure, Arity, AuxiliaryArity)                                           \
+        if (shadow.getRelation()->getName() == "R_5coref4java8Callable16getBelongedClass") { \
+            return true; /* 直接返回*/                                                       \
+        }                                                                                    \
+        auto& rel = *static_cast<RelType*>(shadow.getRelation());                            \
+        return evalInsert(rel, shadow, ctxt);                                                \
     ESAC(Insert)
 
         FOR_EACH(INSERT)

@@ -311,6 +311,13 @@ if (SOUFFLE_USE_SQLITE)
     target_compile_definitions(compiled PUBLIC USE_SQLITE)
     target_link_libraries(libsouffle PUBLIC SQLite::SQLite3)
     target_link_libraries(compiled PUBLIC SQLite::SQLite3)
+
+    target_link_libraries(libsouffle PUBLIC SQLiteCpp)
+    target_link_libraries(compiled PUBLIC SQLiteCpp)
+
+    # target_include_directories(libsouffle PUBLIC $<TARGET_PROPERTY:SQLiteCpp::SQLiteCpp,INTERFACE_INCLUDE_DIRECTORIES>)
+    # target_include_directories(compiled PUBLIC $<TARGET_PROPERTY:SQLiteCpp::SQLiteCpp,INTERFACE_INCLUDE_DIRECTORIES>)
+
     target_include_directories(compiled PUBLIC ${SQLite3_INCLUDE_DIRS})
 endif()
 

@@ -19,9 +19,6 @@
 #include "Global.h"
 #include "interpreter/Context.h"
 #include "interpreter/Generator.h"
-
-#include "interpreter/LLMQueryRelationWrapper.h"
-
 #include "interpreter/Index.h"
 #include "interpreter/Node.h"
 #include "interpreter/Relation.h"
@@ -52,6 +49,9 @@
 namespace souffle::interpreter {
 
 class ProgInterface;
+
+template <std::size_t Arity>
+class LLMQueryRelationWrapper;
 
 /**
  * @class Engine
@@ -86,6 +86,9 @@ public:
         return relToIdMap;
     }
 
+    /** @brief Return a reference to the relation on the given index */
+    RelationHandle& getRelationHandle(const std::size_t idx);
+
 private:
     /** @brief Generate intermediate representation from RAM */
     void generateIR();
@@ -93,8 +96,7 @@ private:
     void dropRelation(const std::size_t relId);
     /** @brief Swap the content of two relations */
     void swapRelation(const std::size_t ramRel1, const std::size_t ramRel2);
-    /** @brief Return a reference to the relation on the given index */
-    RelationHandle& getRelationHandle(const std::size_t idx);
+
     /** @brief Return the ram::TranslationUnit */
     ram::TranslationUnit& getTranslationUnit();
     /** @brief Execute a specific node program */
